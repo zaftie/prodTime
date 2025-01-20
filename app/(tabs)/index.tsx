@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     StyleSheet,
     Platform,
@@ -10,6 +10,7 @@ import {
     FlatList,
     Modal,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function HomeScreen() {
     const [userInput, setUserInput] = useState('');
@@ -17,6 +18,35 @@ export default function HomeScreen() {
     const [inputVisible, setInputVisible] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedTaskIndex, setSelectedTaskIndex] = useState(null);
+
+    // Load tasks from AsyncStorage when the app starts
+    useEffect(() => {
+        loadTasks();
+    }, []);
+
+    // Save tasks to AsyncStorage whenever they change
+    useEffect(() => {
+        saveTasks();
+    }, [tasks]);
+
+    const loadTasks = async () => {
+        try {
+            const storedTasks = await AsyncStorage.getItem('tasks');
+            if (storedTasks) {
+                setTasks(JSON.parse(storedTasks));
+            }
+        } catch (error) {
+            console.error('Failed to load tasks:', error);
+        }
+    };
+
+    const saveTasks = async () => {
+        try {
+            await AsyncStorage.setItem('tasks', JSON.stringify(tasks));
+        } catch (error) {
+            console.error('Failed to save tasks:', error);
+        }
+    };
 
     const handleAddTask = () => {
         if (userInput.trim()) {
@@ -94,22 +124,13 @@ export default function HomeScreen() {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContainer}>
-                        <TouchableOpacity
-                            style={styles.modalButton}
-                            onPress={handleEditTask}
-                        >
+                        <TouchableOpacity style={styles.modalButton} onPress={handleEditTask}>
                             <Text style={styles.modalButtonText}>Edit Task</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.modalButton}
-                            onPress={handleDeleteTask}
-                        >
+                        <TouchableOpacity style={styles.modalButton} onPress={handleDeleteTask}>
                             <Text style={[styles.modalButtonText, styles.deleteButtonText]}>Delete Task</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.modalButton}
-                            onPress={() => setModalVisible(false)}
-                        >
+                        <TouchableOpacity style={styles.modalButton} onPress={() => setModalVisible(false)}>
                             <Text style={styles.modalButtonText}>Cancel</Text>
                         </TouchableOpacity>
                     </View>
