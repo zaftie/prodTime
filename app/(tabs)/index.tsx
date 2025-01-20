@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
     StyleSheet,
-    Platform,
     View,
     TouchableOpacity,
     Text,
@@ -14,10 +13,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function HomeScreen() {
     const [userInput, setUserInput] = useState('');
+    const [timerInput, setTimerInput] = useState('');
     const [tasks, setTasks] = useState([]); // Array to store tasks
     const [inputVisible, setInputVisible] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedTaskIndex, setSelectedTaskIndex] = useState(null);
+    const [timerActive, setTimerActive] = useState(null); // To track which timer is running
 
     // Load tasks from AsyncStorage when the app starts
     useEffect(() => {
@@ -49,11 +50,30 @@ export default function HomeScreen() {
     };
 
     const handleAddTask = () => {
-        if (userInput.trim()) {
-            setTasks([...tasks, userInput]);
+        if (userInput.trim() && timerInput.trim()) {
+            setTasks([
+                ...tasks,
+                {
+                    text: userInput,
+                    timer: parseInt(timerInput, 10), // Timer in seconds
+                    isRunning: false,
+                },
+            ]);
             setUserInput('');
+            setTimerInput('');
             setInputVisible(false);
         }
+    };
+
+    const handleStartTimer = (index) => {
+        setTasks((prevTasks) =>
+            prevTasks.map((task, i) =>
+                i === index
+                    ? { ...task, isRunning: !task.isRunning }
+                    : { ...task, isRunning: false }
+            )
+        );
+        setTimerActive(index);
     };
 
     const handleDeleteTask = () => {
@@ -67,7 +87,9 @@ export default function HomeScreen() {
 
     const handleEditTask = () => {
         if (selectedTaskIndex !== null) {
-            setUserInput(tasks[selectedTaskIndex]);
+            const taskToEdit = tasks[selectedTaskIndex];
+            setUserInput(taskToEdit.text);
+            setTimerInput(taskToEdit.timer.toString());
             setInputVisible(true);
             setModalVisible(false);
         }
@@ -78,6 +100,28 @@ export default function HomeScreen() {
         setModalVisible(true);
     };
 
+    useEffect(() => {
+        let timer;
+        if (timerActive !== null) {
+            const task = tasks[timerActive];
+            if (task?.isRunning && task.timer > 0) {
+                timer = setInterval(() => {
+                    setTasks((prevTasks) =>
+                        prevTasks.map((task, i) =>
+                            i === timerActive
+                                ? { ...task, timer: task.timer - 1 }
+                                : task
+                        )
+                    );
+                }, 1000);
+            } else if (task?.timer === 0) {
+                clearInterval(timer);
+                setTimerActive(null);
+            }
+        }
+        return () => clearInterval(timer);
+    }, [timerActive, tasks]);
+
     return (
         <View style={styles.container}>
             <FlatList
@@ -87,8 +131,11 @@ export default function HomeScreen() {
                     <TouchableOpacity
                         style={styles.taskItem}
                         onLongPress={() => openTaskOptions(index)}
+                        onPress={() => handleStartTimer(index)}
                     >
-                        <Text style={styles.taskText}>{item}</Text>
+                        <Text style={styles.taskText}>
+                            {item.text} - {item.timer}s
+                        </Text>
                     </TouchableOpacity>
                 )}
             />
@@ -106,8 +153,13 @@ export default function HomeScreen() {
                         placeholder="Enter a task"
                         value={userInput}
                         onChangeText={setUserInput}
-                        onSubmitEditing={handleAddTask}
-                        autoFocus={true}
+                    />
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Enter timer (seconds)"
+                        value={timerInput}
+                        onChangeText={setTimerInput}
+                        keyboardType="numeric"
                     />
                     <TouchableOpacity style={styles.submitButton} onPress={handleAddTask}>
                         <Text style={styles.submitButtonText}>Add</Text>
